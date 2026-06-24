@@ -65,7 +65,7 @@ class TodoUpdate(BaseModel):
 # ── Schedule lookup (WISH scraper) ────────────────────────────────────────────
 
 @app.get("/api/schedule/course/{course_code}")
-def search_by_course(course_code: str, acad_year: str = "2026;1"):
+def search_by_course(course_code: str, acad_year: str = "2025;2"):
     """Search NTU WISH by course code, e.g. SC1003."""
     try:
         slots = fetch_schedule_by_course_code(course_code, acad_year)
@@ -77,7 +77,7 @@ def search_by_course(course_code: str, acad_year: str = "2026;1"):
 
 
 @app.get("/api/schedule/index/{course_code}/{index_number}")
-def search_by_index(course_code: str, index_number: str, acad_year: str = "2026;1"):
+def search_by_index(course_code: str, index_number: str, acad_year: str = "2025;2"):
     """Filter slots for a specific index number within a course, e.g. SC1003/10001."""
     try:
         slots = fetch_schedule_by_index(course_code, index_number, acad_year)
@@ -106,7 +106,7 @@ def add_timetable_entry(entry: TimetableEntryCreate, db: Session = Depends(get_d
 
 
 @app.post("/api/timetable/from-wish", status_code=201)
-def add_from_wish(course_code: str, index_number: str, acad_year: str = "2026;1",
+def add_from_wish(course_code: str, index_number: str, acad_year: str = "2025;2",
                   user_id: str = "default", db: Session = Depends(get_db)):
     """
     Fetch all slots for a course+index from WISH and save them to the timetable.
@@ -174,6 +174,52 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Todo not found.")
     db.delete(todo)
     db.commit()
+
+
+# ── Index suggestions (clash detection) ──────────────────────────────────────
+
+@app.get("/api/schedule/suggest/{course_code}")
+def suggest_indexes(course_code: str, user_id: str = "default",
+                    acad_year: str = "2025;2", db: Session = Depends(get_db)):
+    """
+    Returns all indexes for a course, each marked as CLASH or FREE
+    based on the student's existing timetable.
+    """
+    try:
+        all_slots = fetch_schedule_by_course_code(course_code, acad_year)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"WISH fetch failed: {e}")
+    if not all_slots:
+        raise HTTPException(status_code=404, detail="No schedule found for this course code.")
+
+    # Get student's existing timetable
+    existing = db.query(TimetableEntry).filter(TimetableEntry.user_id == user_id).all()
+    existing_slots = {(e.day, e.time_start, e.time_end) for e in existing}
+
+    # Group slots by index number
+    indexes: dict[str, dict] = {}
+    for slot in all_slots:
+        idx = slot["index_number"]
+        if idx not in indexes:
+            indexes[idx] = {"slots": [], "clashes": []}
+        indexes[idx]["slots"].append(slot)
+        if (slot["day"], slot["time_start"], slot["time_end"]) in existing_slots:
+            indexes[idx]["clashes"].append(slot)
+
+    result = []
+    for idx, data in indexes.items():
+        result.append({
+            "index_number": idx,
+            "status": "CLASH" if data["clashes"] else "FREE",
+            "clash_details": data["clashes"],
+            "slots": data["slots"],
+        })
+
+    return {
+        "course_code": course_code.upper(),
+        "course_name": all_slots[0]["course_name"] if all_slots else "",
+        "indexes": result,
+    }
 
 
 # ── Dify revision suggestions ─────────────────────────────────────────────────

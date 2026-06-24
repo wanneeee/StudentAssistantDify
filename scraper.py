@@ -16,7 +16,7 @@ HEADERS = {
 }
 
 
-def fetch_schedule_by_course_code(course_code: str, acad_year: str = "2026;1") -> list[dict]:
+def fetch_schedule_by_course_code(course_code: str, acad_year: str = "2025;2") -> list[dict]:
     """Search by course code (e.g. 'SC1003', 'MH1810')."""
     payload = {
         "r_subj_code": course_code.upper().strip(),
@@ -30,7 +30,7 @@ def fetch_schedule_by_course_code(course_code: str, acad_year: str = "2026;1") -
     return _parse_schedule_html(response.text)
 
 
-def fetch_schedule_by_index(course_code: str, index_number: str, acad_year: str = "2026;1") -> list[dict]:
+def fetch_schedule_by_index(course_code: str, index_number: str, acad_year: str = "2025;2") -> list[dict]:
     """
     Fetch all slots for a specific index number within a course.
     WISH has no direct index lookup — search by course code and filter.

@@ -25,7 +25,7 @@ class TimetableEntry(Base):
     time_end = Column(String)          # e.g. "0930"
     venue = Column(String)
     remark = Column(String)
-    academic_year = Column(String, default="2026;1")
+    academic_year = Column(String, default="2025;2")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
