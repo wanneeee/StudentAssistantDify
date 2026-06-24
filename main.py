@@ -7,7 +7,7 @@ from typing import Optional
 import uvicorn
 
 from database import init_db, get_db, TimetableEntry, TodoItem
-from scraper import fetch_schedule_by_course_code, fetch_schedule_by_index
+from scraper import fetch_schedule_by_course_code, fetch_schedule_by_index, search_by_keyword
 from dify_client import get_revision_suggestions
 
 
@@ -63,6 +63,18 @@ class TodoUpdate(BaseModel):
 
 
 # ── Schedule lookup (WISH scraper) ────────────────────────────────────────────
+
+@app.get("/api/schedule/search")
+def search_by_name(keyword: str, acad_year: str = "2025;2"):
+    """Search courses by keyword in module name, e.g. 'calculus', 'data science'."""
+    try:
+        courses = search_by_keyword(keyword, acad_year)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"WISH fetch failed: {e}")
+    if not courses:
+        raise HTTPException(status_code=404, detail="No courses found for this keyword.")
+    return {"keyword": keyword, "courses": courses}
+
 
 @app.get("/api/schedule/course/{course_code}")
 def search_by_course(course_code: str, acad_year: str = "2025;2"):

@@ -30,6 +30,32 @@ def fetch_schedule_by_course_code(course_code: str, acad_year: str = "2025;2") -
     return _parse_schedule_html(response.text)
 
 
+def search_by_keyword(keyword: str, acad_year: str = "2025;2") -> list[dict]:
+    """
+    Search by a keyword in the module name (e.g. 'computational', 'data', 'calculus').
+    Uses WISH partial search — matches words within course names.
+    Returns one summary entry per course (no slot details).
+    """
+    payload = {
+        "r_subj_code": keyword.strip(),
+        "r_search_type": "P",
+        "boption": "Search",
+        "acadsem": acad_year,
+        "staff_access": "false",
+    }
+    response = requests.post(WISH_RESULTS, data=payload, headers=HEADERS, timeout=15)
+    response.raise_for_status()
+    slots = _parse_schedule_html(response.text)
+
+    # Deduplicate — return one entry per course code
+    seen = {}
+    for s in slots:
+        cc = s["course_code"]
+        if cc not in seen:
+            seen[cc] = {"course_code": cc, "course_name": s["course_name"]}
+    return list(seen.values())
+
+
 def fetch_schedule_by_index(course_code: str, index_number: str, acad_year: str = "2025;2") -> list[dict]:
     """
     Fetch all slots for a specific index number within a course.
